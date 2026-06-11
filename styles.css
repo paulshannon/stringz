@@ -60,6 +60,9 @@ body {
 }
 .logo { margin: 0; font-size: 1.5rem; }
 .tagline { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.9rem; }
+.topbar-actions { display: flex; align-items: center; gap: 0.6rem; }
+.share-status { font-size: 0.85rem; color: var(--accent); white-space: nowrap; }
+.share-btn { white-space: nowrap; }
 .theme-toggle {
   display: inline-flex;
   align-items: center;

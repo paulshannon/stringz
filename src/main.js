@@ -3,6 +3,7 @@ import { SHARP_NAMES, FLAT_NAMES, midiOf, pitchClass, octaveOf, noteName } from 
 import { PRESETS, DEFAULT_PRESET } from './presets.js';
 import { renderFretboard } from './fretboard.js';
 import { identifyChord } from './chords.js';
+import { encodeShare, decodeShare } from './share.js';
 
 const STORAGE_KEY = 'stringz.state.v1';
 const THEME_KEY = 'stringz.theme';
@@ -59,6 +60,8 @@ const els = {
   saveChord: document.getElementById('save-chord'),
   savedEmpty: document.getElementById('saved-empty'),
   savedList: document.getElementById('saved-list'),
+  share: document.getElementById('share'),
+  shareStatus: document.getElementById('share-status'),
 };
 
 const HINTS = {
@@ -390,6 +393,81 @@ function dismissChord(id) {
   render();
 }
 
+// ---------- sharing ----------
+// A serializable snapshot of everything worth sharing. Saved-chord ids are
+// dropped (regenerated on load) to keep the link short.
+function shareSnapshot() {
+  return {
+    strings: state.strings,
+    frets: state.frets,
+    capo: state.capo,
+    mode: state.mode,
+    chord: state.chord,
+    showAll: state.showAll,
+    useFlats: state.useFlats,
+    showOctave: state.showOctave,
+    leftHanded: state.leftHanded,
+    savedChords: state.savedChords.map(({ id, ...rest }) => rest),
+  };
+}
+
+function applySnapshot(snap) {
+  if (Array.isArray(snap.strings) && snap.strings.length && snap.strings.every(Number.isFinite)) {
+    state.strings = snap.strings;
+  }
+  if (Number.isFinite(snap.frets)) state.frets = clampFrets(snap.frets);
+  if (Number.isFinite(snap.capo)) state.capo = clampCapo(snap.capo, state.frets);
+  if (snap.mode === 'chord' || snap.mode === 'explore') state.mode = snap.mode;
+  if (Array.isArray(snap.chord)) state.chord = snap.chord;
+  state.showAll = snap.showAll !== false;
+  state.useFlats = !!snap.useFlats;
+  state.showOctave = !!snap.showOctave;
+  state.leftHanded = !!snap.leftHanded;
+  if (Array.isArray(snap.savedChords)) {
+    state.savedChords = snap.savedChords
+      .filter((c) => c && Array.isArray(c.strings) && Array.isArray(c.chord))
+      .map((c) => ({
+        id: makeId(),
+        name: c.name || '—',
+        strings: c.strings,
+        frets: Number.isFinite(c.frets) ? c.frets : state.frets,
+        capo: Number.isFinite(c.capo) ? c.capo : 0,
+        chord: c.chord,
+      }));
+  }
+}
+
+async function shareLink() {
+  const url = `${location.origin}${location.pathname}#s=${encodeShare(shareSnapshot())}`;
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(url);
+    copied = true;
+  } catch {
+    // clipboard unavailable (e.g. insecure context) — fall back to a prompt
+    try { window.prompt('Copy this link to share your board:', url); copied = true; } catch { /* ignore */ }
+  }
+  flashShareStatus(copied ? 'Link copied!' : 'Copy failed');
+}
+
+let shareStatusTimer = null;
+function flashShareStatus(msg) {
+  els.shareStatus.textContent = msg;
+  clearTimeout(shareStatusTimer);
+  shareStatusTimer = setTimeout(() => { els.shareStatus.textContent = ''; }, 2200);
+}
+
+// If the page was opened with a shared snapshot in the hash, load it (taking
+// precedence over saved local state), then clear the hash so later refreshes
+// use the now-persisted local state.
+function applyHashState() {
+  const m = location.hash.match(/^#s=(.+)$/);
+  if (!m) return;
+  const snap = decodeShare(m[1]);
+  if (snap) applySnapshot(snap);
+  history.replaceState(null, '', location.pathname + location.search);
+}
+
 // ---------- actions ----------
 function onCellClick(s, f) {
   if (state.mode === 'chord') {
@@ -493,6 +571,7 @@ function bindControls() {
   els.clearHighlights.addEventListener('click', () => { state.highlights.clear(); render(); });
   els.muteAll.addEventListener('click', () => { state.chord = state.strings.map(() => null); render(); });
   els.saveChord.addEventListener('click', saveCurrentChord);
+  els.share.addEventListener('click', shareLink);
   els.reset.addEventListener('click', () => {
     state.strings = [...PRESETS[DEFAULT_PRESET]];
     state.frets = 15;
@@ -517,6 +596,7 @@ function init() {
   applyConfigCollapsed(savedCollapsed === '1');
   populatePresets();
   load();
+  applyHashState(); // a shared link overrides saved local state
   bindControls();
   render();
 }
