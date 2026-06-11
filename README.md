@@ -50,11 +50,20 @@ src/
 
 ## Deployment
 
-Pushes to `main` are deployed to GitHub Pages by
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
+The site is served from the `gh-pages` branch:
 
-> **One-time setup:** in the repository settings under **Pages**, set the
-> source to **GitHub Actions**.
+- **Production** — pushes to `main` deploy the site to the root of `gh-pages`
+  via [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
+- **PR previews** — each pull request is deployed to
+  `gh-pages/pr-preview/pr-<number>/` by
+  [`.github/workflows/preview.yml`](.github/workflows/preview.yml), which
+  comments the preview URL on the PR and cleans it up when the PR closes.
+  (Previews only run for branches in this repo; fork PRs get a read-only token.)
+
+> **One-time setup:**
+> 1. **Settings → Pages → Source**: *Deploy from a branch* → `gh-pages` / `(root)`.
+> 2. **Settings → Actions → General → Workflow permissions**: *Read and write
+>    permissions* (so the workflows can update the `gh-pages` branch).
 
 ## Roadmap
 

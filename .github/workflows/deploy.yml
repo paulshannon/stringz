@@ -1,39 +1,35 @@
 name: Deploy to GitHub Pages
 
+# Publishes the production site to the root of the `gh-pages` branch.
+# PR previews (see preview.yml) live under `pr-preview/` on the same branch,
+# so this deploy must NOT wipe that directory.
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Allow one concurrent deployment, cancelling in-progress runs.
+# Don't cancel an in-progress deploy; let pushes queue so the branch stays consistent.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: deploy-gh-pages
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy site to gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          # The site is static; publish the repository root as-is.
-          path: '.'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          branch: gh-pages
+          folder: .
+          # Keep PR-preview folders published by pr-preview-action.
+          clean-exclude: pr-preview/
+          # Rebase instead of force-pushing so concurrent preview deploys aren't clobbered.
+          force: false
