@@ -14,6 +14,8 @@ and vanilla ES-module JavaScript, deployed to GitHub Pages.
   pick from built-in presets (Standard, Drop D, DADGAD, Open G/D, half-step
   down, bass, ukulele, mandolin, violin…).
 - **Adjustable neck length** — 5 to 24 frets, with position-marker inlays.
+- **Capo** — bar any fret; it becomes the new open position, frets behind it
+  are disabled, and open-string notes (and chord names) transpose accordingly.
 - **Two modes:**
   - **Explore** — click any position to highlight every occurrence of that note
     across the whole neck.
