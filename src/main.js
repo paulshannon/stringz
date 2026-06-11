@@ -261,7 +261,24 @@ function onLabelClick(s) {
 // Clicking a fret number sets the capo there; clicking the current capo fret
 // (or fret 0) removes it.
 function onSetCapo(f) {
-  state.capo = f === state.capo ? 0 : clampCapo(f, state.frets);
+  applyCapo(f === state.capo ? 0 : f);
+}
+
+// Move the capo, carrying barred-open strings with it. A string sitting *at*
+// the old capo is being played open (barred), so it follows the capo to its
+// new fret; independently fretted notes above the capo stay put, except they
+// can never sit behind the capo.
+function applyCapo(next) {
+  next = clampCapo(next, state.frets);
+  const prev = state.capo;
+  if (next !== prev) {
+    state.chord = state.chord.map((f) => {
+      if (f == null) return null;
+      if (f === prev) return next; // barred-open string follows the capo
+      return Math.min(Math.max(f, next), state.frets);
+    });
+  }
+  state.capo = next;
   render();
 }
 
@@ -316,7 +333,7 @@ function populatePresets() {
 function bindControls() {
   els.preset.addEventListener('change', () => applyPreset(els.preset.value));
   els.frets.addEventListener('input', () => { state.frets = clampFrets(Number(els.frets.value)); render(); });
-  els.capo.addEventListener('input', () => { state.capo = clampCapo(Number(els.capo.value), state.frets); render(); });
+  els.capo.addEventListener('input', () => applyCapo(Number(els.capo.value)));
   els.showAll.addEventListener('change', () => { state.showAll = els.showAll.checked; render(); });
   els.useFlats.addEventListener('change', () => { state.useFlats = els.useFlats.checked; render(); });
   els.showOctave.addEventListener('change', () => { state.showOctave = els.showOctave.checked; render(); });
