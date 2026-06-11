@@ -216,7 +216,14 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   display: flex;
   align-items: center;
   justify-content: center;
+  /* rendered as a <button> (click to set capo): strip default button chrome */
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 0;
+  cursor: pointer;
 }
+.fret-head:hover:not(.capo-head) { background: color-mix(in srgb, var(--inlay) 20%, transparent); }
 .fret-num { font-size: 0.78rem; color: var(--inlay); font-variant-numeric: tabular-nums; }
 .inlay {
   position: absolute;

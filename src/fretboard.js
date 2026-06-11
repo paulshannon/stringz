@@ -13,7 +13,7 @@ import { noteName, pitchClass } from './notes.js';
 const SINGLE_INLAYS = new Set([3, 5, 7, 9, 15, 17, 19, 21]);
 const DOUBLE_INLAYS = new Set([12, 24]);
 
-export function renderFretboard(container, state, { onCellClick, onLabelClick }) {
+export function renderFretboard(container, state, { onCellClick, onLabelClick, onSetCapo }) {
   const { strings, frets, showAll, useFlats, showOctave, leftHanded, highlights, mode, chord } = state;
   const isChord = mode === 'chord';
   const capo = state.capo || 0;
@@ -25,10 +25,19 @@ export function renderFretboard(container, state, { onCellClick, onLabelClick })
 
   const fretNumbers = Array.from({ length: frets + 1 }, (_, f) => f);
 
-  // ---- Header row: fret numbers + inlay markers ----
+  // ---- Header row: fret numbers + inlay markers (click to set/clear capo) ----
   container.appendChild(cell('label header-cell', ''));
   for (const f of fretNumbers) {
-    const head = cell('fret-head' + (f === 1 ? ' nut-edge' : '') + (f === capo && capo > 0 ? ' capo-head' : ''), '');
+    const isCapoHead = capo > 0 && f === capo;
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'fret-head' + (f === 1 ? ' nut-edge' : '') + (isCapoHead ? ' capo-head' : '');
+    head.setAttribute('aria-pressed', String(isCapoHead));
+    head.title = f === 0
+      ? (capo > 0 ? 'Remove capo' : 'No capo')
+      : (isCapoHead ? `Remove capo at fret ${f}` : `Set capo at fret ${f}`);
+    head.setAttribute('aria-label', head.title);
+
     const num = document.createElement('span');
     num.className = 'fret-num';
     num.textContent = f === 0 ? '' : f;
@@ -38,6 +47,7 @@ export function renderFretboard(container, state, { onCellClick, onLabelClick })
       head.appendChild(inlay('inlay-double'));
       head.appendChild(inlay('inlay-double'));
     }
+    head.addEventListener('click', () => onSetCapo(f));
     container.appendChild(head);
   }
 

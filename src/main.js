@@ -58,8 +58,8 @@ const els = {
 };
 
 const HINTS = {
-  explore: 'Click any position to highlight every occurrence of that note across the neck.',
-  chord: 'Pick a fret on each string. Click a string’s label (✕ / note) to mute or unmute it.',
+  explore: 'Click any position to highlight every occurrence of that note across the neck. Click a fret number to set a capo.',
+  chord: 'Pick a fret on each string. Click a string’s label (✕ / note) to mute or unmute it. Click a fret number to set a capo.',
 };
 
 // ---------- persistence ----------
@@ -151,7 +151,7 @@ function render() {
   els.boardHint.textContent = isChord ? HINTS.chord : HINTS.explore;
 
   renderStringList();
-  renderFretboard(els.fretboard, state, { onCellClick, onLabelClick });
+  renderFretboard(els.fretboard, state, { onCellClick, onLabelClick, onSetCapo });
   if (isChord) renderChordReadout();
   else renderSelectionInfo();
   save();
@@ -255,6 +255,13 @@ function onLabelClick(s) {
   if (state.mode !== 'chord') return;
   // toggle muted <-> open
   state.chord[s] = state.chord[s] == null ? 0 : null;
+  render();
+}
+
+// Clicking a fret number sets the capo there; clicking the current capo fret
+// (or fret 0) removes it.
+function onSetCapo(f) {
+  state.capo = f === state.capo ? 0 : clampCapo(f, state.frets);
   render();
 }
 
