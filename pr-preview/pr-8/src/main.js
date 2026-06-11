@@ -268,13 +268,20 @@ function renderSavedChords() {
     recall.type = 'button';
     recall.className = 'saved-recall';
     recall.title = 'Recall this chord';
+
     const name = document.createElement('span');
     name.className = 'saved-name';
     name.textContent = sc.name || '—';
-    const shape = document.createElement('span');
-    shape.className = 'saved-shape muted';
-    shape.textContent = shapeString(sc.capo || 0, sc.chord);
-    recall.append(name, shape);
+    recall.append(name);
+
+    recall.appendChild(buildChordDiagram(sc));
+
+    if (sc.capo > 0) {
+      const capo = document.createElement('span');
+      capo.className = 'saved-capo muted';
+      capo.textContent = `capo ${sc.capo}`;
+      recall.append(capo);
+    }
     recall.addEventListener('click', () => recallChord(sc.id));
 
     const remove = document.createElement('button');
@@ -288,6 +295,66 @@ function renderSavedChords() {
     li.append(recall, remove);
     els.savedList.appendChild(li);
   }
+}
+
+// Build a compact SVG chord diagram for a saved chord. Strings run low → high
+// left → right; positions are shown relative to the capo (capo/nut = open).
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs = {}) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  return el;
+}
+
+function buildChordDiagram(sc) {
+  const ns = sc.strings.length;
+  const capo = sc.capo || 0;
+  const rel = sc.chord.map((f) => (f == null ? null : f - capo)); // null = mute, 0 = open
+  const fretted = rel.filter((r) => r != null && r > 0);
+
+  let baseFret = 1;
+  let rows = 4;
+  if (fretted.length) {
+    const minF = Math.min(...fretted);
+    const maxF = Math.max(...fretted);
+    if (maxF > 4) { baseFret = minF; rows = Math.max(4, maxF - minF + 1); }
+  }
+  const showNut = baseFret === 1;
+
+  const sGap = 13, fGap = 16, padX = 9, padTop = 16, padBottom = 6;
+  const labelW = baseFret > 1 ? 14 : 0;
+  const w = padX * 2 + (ns - 1) * sGap + labelW;
+  const h = padTop + rows * fGap + padBottom;
+  const x0 = padX, y0 = padTop;
+  const sx = (i) => x0 + i * sGap;
+  const fy = (r) => y0 + r * fGap;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${w} ${h}`, class: 'chord-diagram', role: 'img' });
+  svg.setAttribute('aria-label', `${sc.name} chord diagram`);
+
+  for (let i = 0; i < ns; i++) svg.appendChild(svgEl('line', { x1: sx(i), y1: y0, x2: sx(i), y2: fy(rows), class: 'cd-line' }));
+  for (let r = 0; r <= rows; r++) svg.appendChild(svgEl('line', { x1: x0, y1: fy(r), x2: sx(ns - 1), y2: fy(r), class: 'cd-line' }));
+  if (showNut) svg.appendChild(svgEl('line', { x1: x0, y1: y0, x2: sx(ns - 1), y2: y0, class: 'cd-nut' }));
+  if (baseFret > 1) {
+    const t = svgEl('text', { x: sx(ns - 1) + 5, y: fy(0) + 5, class: 'cd-fretlabel', 'text-anchor': 'start' });
+    t.textContent = `${baseFret}fr`;
+    svg.appendChild(t);
+  }
+
+  for (let i = 0; i < ns; i++) {
+    const r = rel[i];
+    if (r == null || r === 0) {
+      const t = svgEl('text', { x: sx(i), y: y0 - 5, class: r == null ? 'cd-x' : 'cd-o', 'text-anchor': 'middle' });
+      t.textContent = r == null ? '×' : '○';
+      svg.appendChild(t);
+    } else {
+      const row = r - baseFret;
+      if (row >= 0 && row < rows) {
+        svg.appendChild(svgEl('circle', { cx: sx(i), cy: fy(row) + fGap / 2, r: 4.4, class: 'cd-dot' }));
+      }
+    }
+  }
+  return svg;
 }
 
 // ---------- saved chords ----------

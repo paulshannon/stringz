@@ -23,9 +23,9 @@ and vanilla ES-module JavaScript, deployed to GitHub Pages.
     the resulting chord, lists the notes, and shows the shape (e.g. `x 3 2 0 1 0`).
     Recognizes triads, 6/7/9 chords, sus, dim/aug, slash chords, power chords,
     and common no-5th voicings.
-- **Saved chords** — keep a group of chords: save the current shape, then
-  recall any of them (restoring tuning, capo, and shape) or dismiss them.
-  The collection persists in `localStorage`.
+- **Saved chords** — keep a group of chords, each shown as a chord diagram:
+  save the current shape, then recall any of them (restoring tuning, capo, and
+  shape) or dismiss them. The collection persists in `localStorage`.
 - **Display options** — show all note names, sharps vs. flats, octave numbers,
   and a left-handed view.
 - **Persistent** — your configuration and theme are saved in `localStorage`.
