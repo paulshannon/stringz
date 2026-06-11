@@ -95,6 +95,37 @@ body {
 .muted { color: var(--muted); }
 .hint { font-size: 0.82rem; margin: 0.5rem 0 0; }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- collapsible config ---------- */
+.config-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.config-head h2 { margin: 0; }
+.collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem; height: 2rem;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+.chevron { font-size: 1rem; line-height: 1; transition: transform 0.18s ease; }
+.config-panel.collapsed .chevron { transform: rotate(-90deg); }
+.config-body { margin-top: 0.8rem; }
+.config-panel.collapsed .config-body { display: none; }
+/* when collapsed, let the board reclaim the horizontal space (wide screens only) */
+@media (min-width: 881px) {
+  .layout:has(.config-panel.collapsed) { grid-template-columns: auto 1fr; }
+}
+
 /* ---------- config panel ---------- */
 .field { display: block; margin-bottom: 1rem; }
 .field > span { display: block; font-size: 0.85rem; margin-bottom: 0.3rem; color: var(--muted); }

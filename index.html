@@ -18,9 +18,17 @@
   </header>
 
   <main class="layout">
-    <aside class="panel config-panel">
-      <h2>Configuration</h2>
+    <aside class="panel config-panel" id="config-panel">
+      <div class="config-head">
+        <h2 id="config-title">Configuration</h2>
+        <button id="config-toggle" class="collapse-toggle" type="button"
+                aria-expanded="true" aria-controls="config-body">
+          <span class="chevron" aria-hidden="true">▾</span>
+          <span class="visually-hidden">Toggle configuration</span>
+        </button>
+      </div>
 
+      <div class="config-body" id="config-body">
       <label class="field">
         <span>Preset tuning</span>
         <select id="preset" aria-label="Preset tuning"></select>
@@ -50,6 +58,7 @@
       <ol id="string-list" class="string-list" reversed></ol>
 
       <button id="reset" class="reset" type="button">Reset to standard guitar</button>
+      </div>
     </aside>
 
     <section class="panel board-panel">
