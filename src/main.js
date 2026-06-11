@@ -6,6 +6,7 @@ import { identifyChord } from './chords.js';
 
 const STORAGE_KEY = 'stringz.state.v1';
 const THEME_KEY = 'stringz.theme';
+const COLLAPSE_KEY = 'stringz.configCollapsed';
 const MIN_OCTAVE = 0;
 const MAX_OCTAVE = 8;
 
@@ -49,6 +50,8 @@ const els = {
   chordShape: document.getElementById('chord-shape'),
   boardHint: document.getElementById('board-hint'),
   themeToggle: document.getElementById('theme-toggle'),
+  configPanel: document.getElementById('config-panel'),
+  configToggle: document.getElementById('config-toggle'),
 };
 
 const HINTS = {
@@ -275,6 +278,14 @@ function applyTheme(theme) {
   try { localStorage.setItem(THEME_KEY, theme); } catch { /* ignore */ }
 }
 
+// ---------- collapse config ----------
+// Kept out of the main render path: toggling shouldn't rebuild the fretboard.
+function applyConfigCollapsed(collapsed) {
+  els.configPanel.classList.toggle('collapsed', collapsed);
+  els.configToggle.setAttribute('aria-expanded', String(!collapsed));
+  try { localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0'); } catch { /* ignore */ }
+}
+
 // ---------- init ----------
 function populatePresets() {
   for (const name of Object.keys(PRESETS)) els.preset.add(new Option(name, name));
@@ -305,11 +316,16 @@ function bindControls() {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     applyTheme(next);
   });
+  els.configToggle.addEventListener('click', () => {
+    applyConfigCollapsed(!els.configPanel.classList.contains('collapsed'));
+  });
 }
 
 function init() {
   const savedTheme = (() => { try { return localStorage.getItem(THEME_KEY); } catch { return null; } })();
   applyTheme(savedTheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  const savedCollapsed = (() => { try { return localStorage.getItem(COLLAPSE_KEY); } catch { return null; } })();
+  applyConfigCollapsed(savedCollapsed === '1');
   populatePresets();
   load();
   bindControls();
