@@ -4,15 +4,19 @@
 //   'explore' — click a position to highlight every occurrence of that note.
 //   'chord'   — click a position to select that string's note; the per-string
 //               label toggles the string between sounding and muted.
+//
+// A capo (`state.capo`, 0 = none) bars every string at that fret: it becomes
+// the new playable "open" position, and frets behind it are disabled.
 import { noteName, pitchClass } from './notes.js';
 
 // Frets that get position-marker inlays. 12 & 24 get a double marker.
 const SINGLE_INLAYS = new Set([3, 5, 7, 9, 15, 17, 19, 21]);
 const DOUBLE_INLAYS = new Set([12, 24]);
 
-export function renderFretboard(container, state, { onCellClick, onLabelClick }) {
+export function renderFretboard(container, state, { onCellClick, onLabelClick, onSetCapo }) {
   const { strings, frets, showAll, useFlats, showOctave, leftHanded, highlights, mode, chord } = state;
   const isChord = mode === 'chord';
+  const capo = state.capo || 0;
 
   container.innerHTML = '';
   container.classList.toggle('left-handed', leftHanded);
@@ -21,10 +25,19 @@ export function renderFretboard(container, state, { onCellClick, onLabelClick })
 
   const fretNumbers = Array.from({ length: frets + 1 }, (_, f) => f);
 
-  // ---- Header row: fret numbers + inlay markers ----
+  // ---- Header row: fret numbers + inlay markers (click to set/clear capo) ----
   container.appendChild(cell('label header-cell', ''));
   for (const f of fretNumbers) {
-    const head = cell('fret-head' + (f === 1 ? ' nut-edge' : ''), '');
+    const isCapoHead = capo > 0 && f === capo;
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'fret-head' + (f === 1 ? ' nut-edge' : '') + (isCapoHead ? ' capo-head' : '');
+    head.setAttribute('aria-pressed', String(isCapoHead));
+    head.title = f === 0
+      ? (capo > 0 ? 'Remove capo' : 'No capo')
+      : (isCapoHead ? `Remove capo at fret ${f}` : `Set capo at fret ${f}`);
+    head.setAttribute('aria-label', head.title);
+
     const num = document.createElement('span');
     num.className = 'fret-num';
     num.textContent = f === 0 ? '' : f;
@@ -34,6 +47,7 @@ export function renderFretboard(container, state, { onCellClick, onLabelClick })
       head.appendChild(inlay('inlay-double'));
       head.appendChild(inlay('inlay-double'));
     }
+    head.addEventListener('click', () => onSetCapo(f));
     container.appendChild(head);
   }
 
@@ -43,22 +57,27 @@ export function renderFretboard(container, state, { onCellClick, onLabelClick })
     const selectedFret = isChord ? chord[s] : null; // null = muted
     const isMuted = isChord && selectedFret == null;
 
-    container.appendChild(buildLabel(s, open, selectedFret, isMuted, isChord, state, onLabelClick));
+    container.appendChild(buildLabel(s, open, selectedFret, isMuted, isChord, capo, state, onLabelClick));
 
     for (const f of fretNumbers) {
       const midi = open + f;
       const pc = pitchClass(midi);
-      const isOpen = f === 0;
+      const isOpenPos = f === capo;        // the playable "open" (capo fret, or nut when capo = 0)
+      const behindCapo = capo > 0 && f < capo;
+      const isCapoFret = capo > 0 && f === capo;
 
-      const isHi = !isChord && highlights.has(pc);
+      const isHi = !isChord && !behindCapo && highlights.has(pc);
       const isSelected = isChord && selectedFret === f;
-      const showName = showAll || isOpen || isHi || isSelected;
+      const showName = !behindCapo && (showAll || isOpenPos || isHi || isSelected);
 
       const btn = document.createElement('button');
       btn.type = 'button';
+      btn.disabled = behindCapo;
       btn.className = 'cell note-cell' +
         (f === 1 ? ' nut-edge' : '') +
-        (isOpen ? ' open-cell' : '') +
+        (f === 0 ? ' open-cell' : '') +
+        (isCapoFret ? ' capo-cell' : '') +
+        (behindCapo ? ' behind-capo' : '') +
         (isHi ? ' highlighted' : '') +
         (isSelected ? ' selected' : '') +
         (isMuted ? ' in-muted-row' : '');
@@ -66,30 +85,33 @@ export function renderFretboard(container, state, { onCellClick, onLabelClick })
       btn.dataset.fret = String(f);
       btn.setAttribute('role', 'gridcell');
       btn.setAttribute('aria-pressed', String(isSelected));
-      btn.setAttribute('aria-label',
-        `String ${s + 1}, fret ${f}: ${noteName(midi, { useFlats, withOctave: true })}`);
+      btn.setAttribute('aria-label', behindCapo
+        ? `String ${s + 1}, fret ${f}: behind capo (not playable)`
+        : `String ${s + 1}, fret ${f}: ${noteName(midi, { useFlats, withOctave: true })}` +
+          (isCapoFret ? ' (capo)' : ''));
 
       const inner = document.createElement('span');
       inner.className = 'cell-inner';
       const dot = document.createElement('span');
-      dot.className = 'dot' + (isOpen ? ' open-dot' : '');
+      dot.className = 'dot' + (isOpenPos ? ' open-dot' : '');
       dot.textContent = showName ? noteName(midi, { useFlats, withOctave: showOctave }) : '';
       if (!showName) dot.classList.add('empty');
       inner.appendChild(dot);
       btn.appendChild(inner);
 
-      btn.addEventListener('click', () => onCellClick(s, f));
+      if (!behindCapo) btn.addEventListener('click', () => onCellClick(s, f));
       container.appendChild(btn);
     }
   }
 }
 
-function buildLabel(s, open, selectedFret, isMuted, isChord, state, onLabelClick) {
+function buildLabel(s, open, selectedFret, isMuted, isChord, capo, state, onLabelClick) {
   const { useFlats, showOctave } = state;
-  const text = isMuted
-    ? '✕'
-    : noteName(open + (isChord ? selectedFret : 0), { useFlats, withOctave: showOctave });
-  const title = `String ${s + 1} (open ${noteName(open, { useFlats, withOctave: true })})`;
+  // The sounding open note accounts for the capo (capo raises every open string).
+  const openFret = isChord ? selectedFret : capo;
+  const text = isMuted ? '✕' : noteName(open + openFret, { useFlats, withOctave: showOctave });
+  const openLabel = noteName(open + capo, { useFlats, withOctave: true });
+  const title = `String ${s + 1} (open ${openLabel}${capo > 0 ? `, capo ${capo}` : ''})`;
 
   if (!isChord) {
     const div = cell('label', text);

@@ -13,6 +13,7 @@ const MAX_OCTAVE = 8;
 const state = {
   strings: [...PRESETS[DEFAULT_PRESET]],
   frets: 15,
+  capo: 0, // 0 = no capo; otherwise the barred fret (new "open")
   showAll: true,
   useFlats: false,
   showOctave: false,
@@ -26,6 +27,8 @@ const els = {
   preset: document.getElementById('preset'),
   frets: document.getElementById('frets'),
   fretCount: document.getElementById('fret-count'),
+  capo: document.getElementById('capo'),
+  capoCount: document.getElementById('capo-count'),
   showAll: document.getElementById('show-all'),
   useFlats: document.getElementById('use-flats'),
   showOctave: document.getElementById('show-octave'),
@@ -55,8 +58,8 @@ const els = {
 };
 
 const HINTS = {
-  explore: 'Click any position to highlight every occurrence of that note across the neck.',
-  chord: 'Pick a fret on each string. Click a string’s label (✕ / note) to mute or unmute it.',
+  explore: 'Click any position to highlight every occurrence of that note across the neck. Click a fret number to set a capo.',
+  chord: 'Pick a fret on each string. Click a string’s label (✕ / note) to mute or unmute it. Click a fret number to set a capo.',
 };
 
 // ---------- persistence ----------
@@ -64,6 +67,7 @@ function save() {
   const data = {
     strings: state.strings,
     frets: state.frets,
+    capo: state.capo,
     showAll: state.showAll,
     useFlats: state.useFlats,
     showOctave: state.showOctave,
@@ -81,6 +85,7 @@ function load() {
     const data = JSON.parse(raw);
     if (Array.isArray(data.strings) && data.strings.length) state.strings = data.strings;
     if (Number.isFinite(data.frets)) state.frets = clampFrets(data.frets);
+    if (Number.isFinite(data.capo)) state.capo = clampCapo(data.capo, state.frets);
     state.showAll = !!data.showAll;
     state.useFlats = !!data.useFlats;
     state.showOctave = !!data.showOctave;
@@ -91,14 +96,20 @@ function load() {
 }
 
 const clampFrets = (n) => Math.min(24, Math.max(5, Math.round(n)));
+// A capo can sit anywhere from 0 (off) up to one fret short of the neck end,
+// leaving at least one fretted position available.
+const clampCapo = (n, frets) => Math.min(Math.max(0, Math.round(n)), Math.max(0, frets - 1));
 
-// Keep the chord selection array the same length as the strings array.
+// Keep the chord selection array consistent with the strings, neck, and capo.
 function ensureChordLength() {
   const n = state.strings.length;
   if (state.chord.length > n) state.chord.length = n;
   while (state.chord.length < n) state.chord.push(null);
-  // drop any selected fret that now exceeds the neck length
-  state.chord = state.chord.map((f) => (f != null && f > state.frets ? null : f));
+  state.capo = clampCapo(state.capo, state.frets);
+  // Selections must stay within the playable range [capo, frets]; a capo
+  // raises any open/behind-the-capo selection up to the barred fret.
+  state.chord = state.chord.map((f) =>
+    (f == null ? null : Math.min(Math.max(f, state.capo), state.frets)));
 }
 
 // ---------- preset detection ----------
@@ -119,6 +130,9 @@ function render() {
   // sync simple controls to state
   els.frets.value = String(state.frets);
   els.fretCount.textContent = String(state.frets);
+  els.capo.max = String(Math.max(1, state.frets - 1));
+  els.capo.value = String(state.capo);
+  els.capoCount.textContent = state.capo === 0 ? 'Off' : `Fret ${state.capo}`;
   els.showAll.checked = state.showAll;
   els.useFlats.checked = state.useFlats;
   els.showOctave.checked = state.showOctave;
@@ -137,7 +151,7 @@ function render() {
   els.boardHint.textContent = isChord ? HINTS.chord : HINTS.explore;
 
   renderStringList();
-  renderFretboard(els.fretboard, state, { onCellClick, onLabelClick });
+  renderFretboard(els.fretboard, state, { onCellClick, onLabelClick, onSetCapo });
   if (isChord) renderChordReadout();
   else renderSelectionInfo();
   save();
@@ -206,9 +220,9 @@ function renderChordReadout() {
   const midis = state.strings.map((open, s) => (state.chord[s] == null ? null : open + state.chord[s]));
   const result = identifyChord(midis, { useFlats: state.useFlats });
 
-  // shape string, low → high: 'x' for muted, otherwise fret number
+  // shape string, low → high: 'x' for muted, otherwise (absolute) fret number
   const shape = state.chord.map((f) => (f == null ? 'x' : String(f))).join(' ');
-  els.chordShape.textContent = shape;
+  els.chordShape.textContent = state.capo > 0 ? `${shape}  (capo ${state.capo})` : shape;
 
   const anySounding = state.chord.some((f) => f != null);
   els.muteAll.disabled = !anySounding;
@@ -241,6 +255,26 @@ function onLabelClick(s) {
   if (state.mode !== 'chord') return;
   // toggle muted <-> open
   state.chord[s] = state.chord[s] == null ? 0 : null;
+  render();
+}
+
+// Clicking a fret number sets the capo there; clicking the current capo fret
+// (or fret 0) removes it.
+function onSetCapo(f) {
+  applyCapo(f === state.capo ? 0 : f);
+}
+
+// Move the capo, transposing the whole fingered shape with it: every selection
+// keeps its offset relative to the capo (a barred-open string stays open, a note
+// fretted two above the capo stays two above it), clamped to the playable range.
+function applyCapo(next) {
+  next = clampCapo(next, state.frets);
+  const delta = next - state.capo;
+  if (delta !== 0) {
+    state.chord = state.chord.map((f) =>
+      (f == null ? null : Math.min(Math.max(f + delta, next), state.frets)));
+  }
+  state.capo = next;
   render();
 }
 
@@ -295,6 +329,7 @@ function populatePresets() {
 function bindControls() {
   els.preset.addEventListener('change', () => applyPreset(els.preset.value));
   els.frets.addEventListener('input', () => { state.frets = clampFrets(Number(els.frets.value)); render(); });
+  els.capo.addEventListener('input', () => applyCapo(Number(els.capo.value)));
   els.showAll.addEventListener('change', () => { state.showAll = els.showAll.checked; render(); });
   els.useFlats.addEventListener('change', () => { state.useFlats = els.useFlats.checked; render(); });
   els.showOctave.addEventListener('change', () => { state.showOctave = els.showOctave.checked; render(); });
@@ -308,6 +343,7 @@ function bindControls() {
   els.reset.addEventListener('click', () => {
     state.strings = [...PRESETS[DEFAULT_PRESET]];
     state.frets = 15;
+    state.capo = 0;
     state.highlights.clear();
     state.chord = state.strings.map(() => null);
     render();
