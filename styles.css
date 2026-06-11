@@ -71,17 +71,14 @@ body {
 }
 
 /* ---------- layout ---------- */
+/* Single column: fretboard on top, configuration stacked below it. */
 .layout {
-  display: grid;
-  grid-template-columns: minmax(260px, 320px) 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 1.25rem;
   padding: 1.25rem;
-  align-items: start;
   max-width: 1500px;
   margin: 0 auto;
-}
-@media (max-width: 880px) {
-  .layout { grid-template-columns: 1fr; }
 }
 
 .panel {
@@ -119,11 +116,22 @@ body {
 }
 .chevron { font-size: 1rem; line-height: 1; transition: transform 0.18s ease; }
 .config-panel.collapsed .chevron { transform: rotate(-90deg); }
-.config-body { margin-top: 0.8rem; }
+
+/* The config panel now sits full-width below the board, so lay its controls
+   out in responsive columns instead of one tall stack. */
+.config-body {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem 1.5rem;
+  align-items: start;
+}
+.config-body .field { margin-bottom: 0; }
+.config-body .reset { grid-column: 1 / -1; margin-top: 0; }
 .config-panel.collapsed .config-body { display: none; }
-/* when collapsed, let the board reclaim the horizontal space (wide screens only) */
-@media (min-width: 881px) {
-  .layout:has(.config-panel.collapsed) { grid-template-columns: auto 1fr; }
+/* give the strings list more room once there's space for multiple columns */
+@media (min-width: 720px) {
+  .config-body .strings-section { grid-column: span 2; }
 }
 
 /* ---------- config panel ---------- */
