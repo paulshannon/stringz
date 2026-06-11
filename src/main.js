@@ -21,6 +21,7 @@ const state = {
   highlights: new Set(),
   mode: 'explore', // 'explore' | 'chord'
   chord: [], // per-string selected fret; null = muted. Length tracks strings.
+  savedChords: [], // [{ id, name, strings, frets, capo, chord }]
 };
 
 const els = {
@@ -55,6 +56,9 @@ const els = {
   themeToggle: document.getElementById('theme-toggle'),
   configPanel: document.getElementById('config-panel'),
   configToggle: document.getElementById('config-toggle'),
+  saveChord: document.getElementById('save-chord'),
+  savedEmpty: document.getElementById('saved-empty'),
+  savedList: document.getElementById('saved-list'),
 };
 
 const HINTS = {
@@ -74,6 +78,7 @@ function save() {
     leftHanded: state.leftHanded,
     mode: state.mode,
     chord: state.chord,
+    savedChords: state.savedChords,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
 }
@@ -92,6 +97,7 @@ function load() {
     state.leftHanded = !!data.leftHanded;
     if (data.mode === 'chord' || data.mode === 'explore') state.mode = data.mode;
     if (Array.isArray(data.chord)) state.chord = data.chord;
+    if (Array.isArray(data.savedChords)) state.savedChords = data.savedChords;
   } catch { /* ignore corrupt state */ }
 }
 
@@ -99,6 +105,19 @@ const clampFrets = (n) => Math.min(24, Math.max(5, Math.round(n)));
 // A capo can sit anywhere from 0 (off) up to one fret short of the neck end,
 // leaving at least one fretted position available.
 const clampCapo = (n, frets) => Math.min(Math.max(0, Math.round(n)), Math.max(0, frets - 1));
+
+const makeId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+// Sounding MIDI note per string (null = muted), accounting for the open note + fret.
+const soundingMidis = (strings, chord) =>
+  strings.map((open, s) => (chord[s] == null ? null : open + chord[s]));
+
+// A chord's shape, written low → high relative to the capo (a string barred at
+// the capo reads as 0), like a chord diagram.
+function shapeString(capo, chord) {
+  const s = chord.map((f) => (f == null ? 'x' : String(f - (capo || 0)))).join(' ');
+  return capo > 0 ? `${s}  (capo ${capo})` : s;
+}
 
 // Keep the chord selection array consistent with the strings, neck, and capo.
 function ensureChordLength() {
@@ -154,6 +173,7 @@ function render() {
   renderFretboard(els.fretboard, state, { onCellClick, onLabelClick, onSetCapo });
   if (isChord) renderChordReadout();
   else renderSelectionInfo();
+  renderSavedChords();
   save();
 }
 
@@ -216,14 +236,8 @@ function renderSelectionInfo() {
 }
 
 function renderChordReadout() {
-  // sounding notes, low string → high string
-  const midis = state.strings.map((open, s) => (state.chord[s] == null ? null : open + state.chord[s]));
-  const result = identifyChord(midis, { useFlats: state.useFlats });
-
-  // shape string, low → high: 'x' for muted, otherwise the fret relative to the
-  // capo (so a string barred at the capo reads as 0, like a chord diagram)
-  const shape = state.chord.map((f) => (f == null ? 'x' : String(f - state.capo))).join(' ');
-  els.chordShape.textContent = state.capo > 0 ? `${shape}  (capo ${state.capo})` : shape;
+  const result = identifyChord(soundingMidis(state.strings, state.chord), { useFlats: state.useFlats });
+  els.chordShape.textContent = shapeString(state.capo, state.chord);
 
   const anySounding = state.chord.some((f) => f != null);
   els.muteAll.disabled = !anySounding;
@@ -237,6 +251,143 @@ function renderChordReadout() {
   els.chordName.textContent = result.symbol;
   els.chordQuality.textContent = result.quality;
   els.chordNotes.textContent = result.notes.join(' ');
+}
+
+function renderSavedChords() {
+  // Save is only meaningful when something is currently sounding.
+  els.saveChord.disabled = !state.chord.some((f) => f != null);
+
+  els.savedEmpty.hidden = state.savedChords.length > 0;
+  els.savedList.innerHTML = '';
+
+  for (const sc of state.savedChords) {
+    const li = document.createElement('li');
+    li.className = 'saved-item';
+
+    const recall = document.createElement('button');
+    recall.type = 'button';
+    recall.className = 'saved-recall';
+    recall.title = 'Recall this chord';
+
+    const name = document.createElement('span');
+    name.className = 'saved-name';
+    name.textContent = sc.name || '—';
+    recall.append(name);
+
+    recall.appendChild(buildChordDiagram(sc));
+
+    if (sc.capo > 0) {
+      const capo = document.createElement('span');
+      capo.className = 'saved-capo muted';
+      capo.textContent = `capo ${sc.capo}`;
+      recall.append(capo);
+    }
+    recall.addEventListener('click', () => recallChord(sc.id));
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'saved-remove';
+    remove.title = 'Remove';
+    remove.setAttribute('aria-label', `Remove ${sc.name || 'chord'}`);
+    remove.textContent = '×';
+    remove.addEventListener('click', () => dismissChord(sc.id));
+
+    li.append(recall, remove);
+    els.savedList.appendChild(li);
+  }
+}
+
+// Build a compact SVG chord diagram for a saved chord. Strings run low → high
+// left → right; positions are shown relative to the capo (capo/nut = open).
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs = {}) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  return el;
+}
+
+function buildChordDiagram(sc) {
+  const ns = sc.strings.length;
+  const capo = sc.capo || 0;
+  const rel = sc.chord.map((f) => (f == null ? null : f - capo)); // null = mute, 0 = open
+  const fretted = rel.filter((r) => r != null && r > 0);
+
+  let baseFret = 1;
+  let rows = 4;
+  if (fretted.length) {
+    const minF = Math.min(...fretted);
+    const maxF = Math.max(...fretted);
+    if (maxF > 4) { baseFret = minF; rows = Math.max(4, maxF - minF + 1); }
+  }
+  const showNut = baseFret === 1;
+
+  const sGap = 13, fGap = 16, padX = 9, padTop = 16, padBottom = 6;
+  const labelW = baseFret > 1 ? 14 : 0;
+  const w = padX * 2 + (ns - 1) * sGap + labelW;
+  const h = padTop + rows * fGap + padBottom;
+  const x0 = padX, y0 = padTop;
+  const sx = (i) => x0 + i * sGap;
+  const fy = (r) => y0 + r * fGap;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${w} ${h}`, class: 'chord-diagram', role: 'img' });
+  svg.setAttribute('aria-label', `${sc.name} chord diagram`);
+
+  for (let i = 0; i < ns; i++) svg.appendChild(svgEl('line', { x1: sx(i), y1: y0, x2: sx(i), y2: fy(rows), class: 'cd-line' }));
+  for (let r = 0; r <= rows; r++) svg.appendChild(svgEl('line', { x1: x0, y1: fy(r), x2: sx(ns - 1), y2: fy(r), class: 'cd-line' }));
+  if (showNut) svg.appendChild(svgEl('line', { x1: x0, y1: y0, x2: sx(ns - 1), y2: y0, class: 'cd-nut' }));
+  if (baseFret > 1) {
+    const t = svgEl('text', { x: sx(ns - 1) + 5, y: fy(0) + 5, class: 'cd-fretlabel', 'text-anchor': 'start' });
+    t.textContent = `${baseFret}fr`;
+    svg.appendChild(t);
+  }
+
+  for (let i = 0; i < ns; i++) {
+    const r = rel[i];
+    if (r == null || r === 0) {
+      const t = svgEl('text', { x: sx(i), y: y0 - 5, class: r == null ? 'cd-x' : 'cd-o', 'text-anchor': 'middle' });
+      t.textContent = r == null ? '×' : '○';
+      svg.appendChild(t);
+    } else {
+      const row = r - baseFret;
+      if (row >= 0 && row < rows) {
+        svg.appendChild(svgEl('circle', { cx: sx(i), cy: fy(row) + fGap / 2, r: 4.4, class: 'cd-dot' }));
+      }
+    }
+  }
+  return svg;
+}
+
+// ---------- saved chords ----------
+function saveCurrentChord() {
+  const result = identifyChord(soundingMidis(state.strings, state.chord), { useFlats: state.useFlats });
+  if (!result) return; // nothing sounding
+  state.savedChords.push({
+    id: makeId(),
+    name: result.symbol,
+    strings: [...state.strings],
+    frets: state.frets,
+    capo: state.capo,
+    chord: [...state.chord],
+  });
+  render();
+}
+
+// Recall restores the full context (tuning, neck, capo, shape) so the chord
+// sounds exactly as it was saved, and switches to chord mode.
+function recallChord(id) {
+  const sc = state.savedChords.find((c) => c.id === id);
+  if (!sc) return;
+  state.strings = [...sc.strings];
+  state.frets = clampFrets(sc.frets ?? state.frets);
+  state.capo = clampCapo(sc.capo ?? 0, state.frets);
+  state.chord = [...sc.chord];
+  state.mode = 'chord';
+  render();
+}
+
+function dismissChord(id) {
+  state.savedChords = state.savedChords.filter((c) => c.id !== id);
+  render();
 }
 
 // ---------- actions ----------
@@ -341,6 +492,7 @@ function bindControls() {
   els.modeChord.addEventListener('click', () => setMode('chord'));
   els.clearHighlights.addEventListener('click', () => { state.highlights.clear(); render(); });
   els.muteAll.addEventListener('click', () => { state.chord = state.strings.map(() => null); render(); });
+  els.saveChord.addEventListener('click', saveCurrentChord);
   els.reset.addEventListener('click', () => {
     state.strings = [...PRESETS[DEFAULT_PRESET]];
     state.frets = 15;
