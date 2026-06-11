@@ -18,40 +18,6 @@
   </header>
 
   <main class="layout">
-    <aside class="panel config-panel">
-      <h2>Configuration</h2>
-
-      <label class="field">
-        <span>Preset tuning</span>
-        <select id="preset" aria-label="Preset tuning"></select>
-      </label>
-
-      <label class="field">
-        <span>Frets: <output id="fret-count">15</output></span>
-        <input id="frets" type="range" min="5" max="24" value="15" />
-      </label>
-
-      <fieldset class="field toggles">
-        <legend>Display</legend>
-        <label class="check"><input id="show-all" type="checkbox" checked /> Show all note names</label>
-        <label class="check"><input id="use-flats" type="checkbox" /> Use flats (♭) instead of sharps (♯)</label>
-        <label class="check"><input id="show-octave" type="checkbox" /> Show octave numbers</label>
-        <label class="check"><input id="left-handed" type="checkbox" /> Left-handed</label>
-      </fieldset>
-
-      <div class="strings-head">
-        <h3>Strings <span id="string-count" class="muted"></span></h3>
-        <div class="string-buttons">
-          <button id="add-string" type="button" title="Add a higher string">+ String</button>
-          <button id="remove-string" type="button" title="Remove the highest string">− String</button>
-        </div>
-      </div>
-      <p class="muted hint">Top row = highest-pitched string, matching the board. Each string is independently tunable.</p>
-      <ol id="string-list" class="string-list" reversed></ol>
-
-      <button id="reset" class="reset" type="button">Reset to standard guitar</button>
-    </aside>
-
     <section class="panel board-panel">
       <div class="board-head">
         <h2>Fretboard</h2>
@@ -83,6 +49,51 @@
 
       <p class="muted hint" id="board-hint">Click any position to highlight every occurrence of that note across the neck.</p>
     </section>
+
+    <aside class="panel config-panel" id="config-panel">
+      <div class="config-head">
+        <h2 id="config-title">Configuration</h2>
+        <button id="config-toggle" class="collapse-toggle" type="button"
+                aria-expanded="true" aria-controls="config-body">
+          <span class="chevron" aria-hidden="true">▾</span>
+          <span class="visually-hidden">Toggle configuration</span>
+        </button>
+      </div>
+
+      <div class="config-body" id="config-body">
+        <label class="field">
+          <span>Preset tuning</span>
+          <select id="preset" aria-label="Preset tuning"></select>
+        </label>
+
+        <label class="field">
+          <span>Frets: <output id="fret-count">15</output></span>
+          <input id="frets" type="range" min="5" max="24" value="15" />
+        </label>
+
+        <fieldset class="field toggles">
+          <legend>Display</legend>
+          <label class="check"><input id="show-all" type="checkbox" checked /> Show all note names</label>
+          <label class="check"><input id="use-flats" type="checkbox" /> Use flats (♭) instead of sharps (♯)</label>
+          <label class="check"><input id="show-octave" type="checkbox" /> Show octave numbers</label>
+          <label class="check"><input id="left-handed" type="checkbox" /> Left-handed</label>
+        </fieldset>
+
+        <div class="strings-section">
+          <div class="strings-head">
+            <h3>Strings <span id="string-count" class="muted"></span></h3>
+            <div class="string-buttons">
+              <button id="add-string" type="button" title="Add a higher string">+ String</button>
+              <button id="remove-string" type="button" title="Remove the highest string">− String</button>
+            </div>
+          </div>
+          <p class="muted hint">Top row = highest-pitched string, matching the board. Each string is independently tunable.</p>
+          <ol id="string-list" class="string-list" reversed></ol>
+        </div>
+
+        <button id="reset" class="reset" type="button">Reset to standard guitar</button>
+      </div>
+    </aside>
   </main>
 
   <footer class="footer">
