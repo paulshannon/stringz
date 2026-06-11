@@ -264,19 +264,15 @@ function onSetCapo(f) {
   applyCapo(f === state.capo ? 0 : f);
 }
 
-// Move the capo, carrying barred-open strings with it. A string sitting *at*
-// the old capo is being played open (barred), so it follows the capo to its
-// new fret; independently fretted notes above the capo stay put, except they
-// can never sit behind the capo.
+// Move the capo, transposing the whole fingered shape with it: every selection
+// keeps its offset relative to the capo (a barred-open string stays open, a note
+// fretted two above the capo stays two above it), clamped to the playable range.
 function applyCapo(next) {
   next = clampCapo(next, state.frets);
-  const prev = state.capo;
-  if (next !== prev) {
-    state.chord = state.chord.map((f) => {
-      if (f == null) return null;
-      if (f === prev) return next; // barred-open string follows the capo
-      return Math.min(Math.max(f, next), state.frets);
-    });
+  const delta = next - state.capo;
+  if (delta !== 0) {
+    state.chord = state.chord.map((f) =>
+      (f == null ? null : Math.min(Math.max(f + delta, next), state.frets)));
   }
   state.capo = next;
   render();
