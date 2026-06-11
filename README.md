@@ -14,8 +14,13 @@ and vanilla ES-module JavaScript, deployed to GitHub Pages.
   pick from built-in presets (Standard, Drop D, DADGAD, Open G/D, half-step
   down, bass, ukulele, mandolin, violin…).
 - **Adjustable neck length** — 5 to 24 frets, with position-marker inlays.
-- **Note highlighting** — click any position to highlight every occurrence of
-  that note across the whole neck.
+- **Two modes:**
+  - **Explore** — click any position to highlight every occurrence of that note
+    across the whole neck.
+  - **Build chord** — pick a fret on each string (or mute it), and Stringz names
+    the resulting chord, lists the notes, and shows the shape (e.g. `x 3 2 0 1 0`).
+    Recognizes triads, 6/7/9 chords, sus, dim/aug, slash chords, power chords,
+    and common no-5th voicings.
 - **Display options** — show all note names, sharps vs. flats, octave numbers,
   and a left-handed view.
 - **Persistent** — your configuration and theme are saved in `localStorage`.
@@ -39,6 +44,7 @@ src/
   main.js         state, controls, persistence, wiring (entry point)
   notes.js        note math (MIDI numbers, pitch classes, naming)
   presets.js      built-in tuning presets
+  chords.js       chord identification from a set of notes
   fretboard.js    fretboard rendering + interaction
 ```
 
@@ -52,5 +58,5 @@ Pushes to `main` are deployed to GitHub Pages by
 
 ## Roadmap
 
-Interactive fretboard is the first feature. Possible future additions: scale &
-chord overlays, a microphone-based tuner, and chord-diagram export.
+Interactive fretboard and chord builder are done. Possible future additions:
+scale overlays, a microphone-based tuner, and chord-diagram export/sharing.
