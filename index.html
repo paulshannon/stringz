@@ -55,15 +55,33 @@
     <section class="panel board-panel">
       <div class="board-head">
         <h2>Fretboard</h2>
-        <div class="board-actions">
-          <span id="selection-info" class="muted" aria-live="polite"></span>
-          <button id="clear-highlights" type="button">Clear highlights</button>
+        <div class="mode-switch" role="group" aria-label="Interaction mode">
+          <button id="mode-explore" class="mode-btn" type="button" aria-pressed="true">Explore</button>
+          <button id="mode-chord" class="mode-btn" type="button" aria-pressed="false">Build chord</button>
         </div>
       </div>
+
+      <div id="explore-bar" class="context-bar">
+        <span id="selection-info" class="muted" aria-live="polite"></span>
+        <button id="clear-highlights" type="button">Clear highlights</button>
+      </div>
+
+      <div id="chord-bar" class="context-bar" hidden>
+        <span class="chord-name" id="chord-name" aria-live="polite">—</span>
+        <span class="chord-quality muted" id="chord-quality"></span>
+        <button id="mute-all" type="button">Mute all</button>
+      </div>
+
       <div class="board-scroll">
         <div id="fretboard" class="fretboard" role="grid" aria-label="Guitar fretboard"></div>
       </div>
-      <p class="muted hint">Click any position to highlight every occurrence of that note across the neck.</p>
+
+      <div id="chord-details" class="chord-details" hidden>
+        <div><span class="muted">Notes (low → high):</span> <span id="chord-notes">—</span></div>
+        <div><span class="muted">Shape (low → high):</span> <code id="chord-shape">—</code></div>
+      </div>
+
+      <p class="muted hint" id="board-hint">Click any position to highlight every occurrence of that note across the neck.</p>
     </section>
   </main>
 

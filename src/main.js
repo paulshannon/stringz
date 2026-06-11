@@ -2,6 +2,7 @@
 import { SHARP_NAMES, FLAT_NAMES, midiOf, pitchClass, octaveOf, noteName } from './notes.js';
 import { PRESETS, DEFAULT_PRESET } from './presets.js';
 import { renderFretboard } from './fretboard.js';
+import { identifyChord } from './chords.js';
 
 const STORAGE_KEY = 'stringz.state.v1';
 const THEME_KEY = 'stringz.theme';
@@ -16,6 +17,8 @@ const state = {
   showOctave: false,
   leftHanded: false,
   highlights: new Set(),
+  mode: 'explore', // 'explore' | 'chord'
+  chord: [], // per-string selected fret; null = muted. Length tracks strings.
 };
 
 const els = {
@@ -32,9 +35,25 @@ const els = {
   removeString: document.getElementById('remove-string'),
   reset: document.getElementById('reset'),
   fretboard: document.getElementById('fretboard'),
+  modeExplore: document.getElementById('mode-explore'),
+  modeChord: document.getElementById('mode-chord'),
+  exploreBar: document.getElementById('explore-bar'),
+  chordBar: document.getElementById('chord-bar'),
   clearHighlights: document.getElementById('clear-highlights'),
   selectionInfo: document.getElementById('selection-info'),
+  chordName: document.getElementById('chord-name'),
+  chordQuality: document.getElementById('chord-quality'),
+  muteAll: document.getElementById('mute-all'),
+  chordDetails: document.getElementById('chord-details'),
+  chordNotes: document.getElementById('chord-notes'),
+  chordShape: document.getElementById('chord-shape'),
+  boardHint: document.getElementById('board-hint'),
   themeToggle: document.getElementById('theme-toggle'),
+};
+
+const HINTS = {
+  explore: 'Click any position to highlight every occurrence of that note across the neck.',
+  chord: 'Pick a fret on each string. Click a string’s label (✕ / note) to mute or unmute it.',
 };
 
 // ---------- persistence ----------
@@ -46,6 +65,8 @@ function save() {
     useFlats: state.useFlats,
     showOctave: state.showOctave,
     leftHanded: state.leftHanded,
+    mode: state.mode,
+    chord: state.chord,
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
 }
@@ -61,10 +82,21 @@ function load() {
     state.useFlats = !!data.useFlats;
     state.showOctave = !!data.showOctave;
     state.leftHanded = !!data.leftHanded;
+    if (data.mode === 'chord' || data.mode === 'explore') state.mode = data.mode;
+    if (Array.isArray(data.chord)) state.chord = data.chord;
   } catch { /* ignore corrupt state */ }
 }
 
 const clampFrets = (n) => Math.min(24, Math.max(5, Math.round(n)));
+
+// Keep the chord selection array the same length as the strings array.
+function ensureChordLength() {
+  const n = state.strings.length;
+  if (state.chord.length > n) state.chord.length = n;
+  while (state.chord.length < n) state.chord.push(null);
+  // drop any selected fret that now exceeds the neck length
+  state.chord = state.chord.map((f) => (f != null && f > state.frets ? null : f));
+}
 
 // ---------- preset detection ----------
 function matchingPresetName() {
@@ -79,6 +111,8 @@ function matchingPresetName() {
 
 // ---------- rendering ----------
 function render() {
+  ensureChordLength();
+
   // sync simple controls to state
   els.frets.value = String(state.frets);
   els.fretCount.textContent = String(state.frets);
@@ -90,9 +124,19 @@ function render() {
   els.stringCount.textContent = `(${state.strings.length})`;
   els.removeString.disabled = state.strings.length <= 1;
 
+  // mode UI
+  const isChord = state.mode === 'chord';
+  els.modeExplore.setAttribute('aria-pressed', String(!isChord));
+  els.modeChord.setAttribute('aria-pressed', String(isChord));
+  els.exploreBar.hidden = isChord;
+  els.chordBar.hidden = !isChord;
+  els.chordDetails.hidden = !isChord;
+  els.boardHint.textContent = isChord ? HINTS.chord : HINTS.explore;
+
   renderStringList();
-  renderFretboard(els.fretboard, state, { onToggle: toggleHighlight });
-  renderSelectionInfo();
+  renderFretboard(els.fretboard, state, { onCellClick, onLabelClick });
+  if (isChord) renderChordReadout();
+  else renderSelectionInfo();
   save();
 }
 
@@ -154,31 +198,73 @@ function renderSelectionInfo() {
   els.clearHighlights.disabled = false;
 }
 
+function renderChordReadout() {
+  // sounding notes, low string → high string
+  const midis = state.strings.map((open, s) => (state.chord[s] == null ? null : open + state.chord[s]));
+  const result = identifyChord(midis, { useFlats: state.useFlats });
+
+  // shape string, low → high: 'x' for muted, otherwise fret number
+  const shape = state.chord.map((f) => (f == null ? 'x' : String(f))).join(' ');
+  els.chordShape.textContent = shape;
+
+  const anySounding = state.chord.some((f) => f != null);
+  els.muteAll.disabled = !anySounding;
+
+  if (!result) {
+    els.chordName.textContent = '—';
+    els.chordQuality.textContent = 'All strings muted';
+    els.chordNotes.textContent = '—';
+    return;
+  }
+  els.chordName.textContent = result.symbol;
+  els.chordQuality.textContent = result.quality;
+  els.chordNotes.textContent = result.notes.join(' ');
+}
+
 // ---------- actions ----------
-function toggleHighlight(pc) {
-  if (state.highlights.has(pc)) state.highlights.delete(pc);
-  else state.highlights.add(pc);
+function onCellClick(s, f) {
+  if (state.mode === 'chord') {
+    // clicking the already-selected fret mutes the string
+    state.chord[s] = state.chord[s] === f ? null : f;
+  } else {
+    const pc = pitchClass(state.strings[s] + f);
+    if (state.highlights.has(pc)) state.highlights.delete(pc);
+    else state.highlights.add(pc);
+  }
+  render();
+}
+
+function onLabelClick(s) {
+  if (state.mode !== 'chord') return;
+  // toggle muted <-> open
+  state.chord[s] = state.chord[s] == null ? 0 : null;
+  render();
+}
+
+function setMode(mode) {
+  state.mode = mode;
   render();
 }
 
 function addString() {
-  // add a string a perfect fourth (5 semitones) above the current highest
   const highest = Math.max(...state.strings);
   state.strings.push(highest + 5);
+  state.chord.push(null);
   render();
 }
 
 function removeString() {
   if (state.strings.length <= 1) return;
-  // remove the highest-pitched string (the one shown at the top)
   const hiIndex = state.strings.indexOf(Math.max(...state.strings));
   state.strings.splice(hiIndex, 1);
+  state.chord.splice(hiIndex, 1);
   render();
 }
 
 function applyPreset(name) {
   if (name === '__custom__' || !PRESETS[name]) return;
   state.strings = [...PRESETS[name]];
+  state.chord = state.strings.map(() => null);
   render();
 }
 
@@ -204,11 +290,15 @@ function bindControls() {
   els.leftHanded.addEventListener('change', () => { state.leftHanded = els.leftHanded.checked; render(); });
   els.addString.addEventListener('click', addString);
   els.removeString.addEventListener('click', removeString);
+  els.modeExplore.addEventListener('click', () => setMode('explore'));
+  els.modeChord.addEventListener('click', () => setMode('chord'));
   els.clearHighlights.addEventListener('click', () => { state.highlights.clear(); render(); });
+  els.muteAll.addEventListener('click', () => { state.chord = state.strings.map(() => null); render(); });
   els.reset.addEventListener('click', () => {
     state.strings = [...PRESETS[DEFAULT_PRESET]];
     state.frets = 15;
     state.highlights.clear();
+    state.chord = state.strings.map(() => null);
     render();
   });
   els.themeToggle.addEventListener('click', () => {
