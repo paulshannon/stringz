@@ -220,8 +220,9 @@ function renderChordReadout() {
   const midis = state.strings.map((open, s) => (state.chord[s] == null ? null : open + state.chord[s]));
   const result = identifyChord(midis, { useFlats: state.useFlats });
 
-  // shape string, low → high: 'x' for muted, otherwise (absolute) fret number
-  const shape = state.chord.map((f) => (f == null ? 'x' : String(f))).join(' ');
+  // shape string, low → high: 'x' for muted, otherwise the fret relative to the
+  // capo (so a string barred at the capo reads as 0, like a chord diagram)
+  const shape = state.chord.map((f) => (f == null ? 'x' : String(f - state.capo))).join(' ');
   els.chordShape.textContent = state.capo > 0 ? `${shape}  (capo ${state.capo})` : shape;
 
   const anySounding = state.chord.some((f) => f != null);
