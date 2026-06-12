@@ -25,7 +25,8 @@ and vanilla ES-module JavaScript, deployed to GitHub Pages.
     and common no-5th voicings.
 - **Saved chords** — keep a group of chords, each shown as a chord diagram:
   save the current shape, then recall any of them (restoring tuning, capo, and
-  shape) or dismiss them. The collection persists in `localStorage`.
+  shape) or dismiss them. The collection persists in `localStorage`, and a
+  copyable plain-text chart lists every saved chord as a one-line shape.
 - **Display options** — show all note names, sharps vs. flats, octave numbers,
   and a left-handed view.
 - **Persistent** — your configuration and theme are saved in `localStorage`.

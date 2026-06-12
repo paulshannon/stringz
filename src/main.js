@@ -60,6 +60,10 @@ const els = {
   saveChord: document.getElementById('save-chord'),
   savedEmpty: document.getElementById('saved-empty'),
   savedList: document.getElementById('saved-list'),
+  asciiWrap: document.getElementById('ascii-wrap'),
+  asciiChart: document.getElementById('ascii-chart'),
+  copyAscii: document.getElementById('copy-ascii'),
+  asciiStatus: document.getElementById('ascii-status'),
   share: document.getElementById('share'),
   shareStatus: document.getElementById('share-status'),
 };
@@ -298,6 +302,35 @@ function renderSavedChords() {
     li.append(recall, remove);
     els.savedList.appendChild(li);
   }
+
+  els.asciiWrap.hidden = state.savedChords.length === 0;
+  els.asciiChart.textContent = asciiChart(state.savedChords);
+}
+
+// A plain-text chart of the saved chords, grouped by capo. Each line is the
+// per-string frets (relative to that group's capo, 'X' = muted), low → high,
+// followed by the chord name. Columns are padded to align across all chords.
+function asciiChart(saved) {
+  if (!saved.length) return '';
+
+  const cellsOf = (sc) => sc.chord.map((f) => (f == null ? 'X' : String(f - (sc.capo || 0))));
+  const cellW = Math.max(1, ...saved.flatMap((sc) => cellsOf(sc).map((c) => c.length)));
+  const shapeOf = (sc) => cellsOf(sc).map((c) => c.padStart(cellW)).join(' ');
+  const shapeW = Math.max(...saved.map((sc) => shapeOf(sc).length));
+
+  // group by capo, in ascending capo order
+  const capos = [...new Set(saved.map((sc) => sc.capo || 0))].sort((a, b) => a - b);
+  const showHeaders = !(capos.length === 1 && capos[0] === 0);
+
+  const out = [];
+  capos.forEach((capo, gi) => {
+    if (gi > 0) out.push('');
+    if (showHeaders) out.push(capo === 0 ? 'No capo' : `Capo ${capo}`);
+    for (const sc of saved.filter((sc) => (sc.capo || 0) === capo)) {
+      out.push(`${shapeOf(sc).padEnd(shapeW)}  ${sc.name || '-'}`);
+    }
+  });
+  return out.join('\n');
 }
 
 // Build a compact SVG chord diagram for a saved chord. Strings run low → high
@@ -437,24 +470,31 @@ function applySnapshot(snap) {
   }
 }
 
-async function shareLink() {
-  const url = `${location.origin}${location.pathname}#s=${encodeShare(shareSnapshot())}`;
-  let copied = false;
+// Copy text to the clipboard, with a prompt() fallback for non-secure contexts.
+async function copyText(text, promptLabel) {
   try {
-    await navigator.clipboard.writeText(url);
-    copied = true;
+    await navigator.clipboard.writeText(text);
+    return true;
   } catch {
-    // clipboard unavailable (e.g. insecure context) — fall back to a prompt
-    try { window.prompt('Copy this link to share your board:', url); copied = true; } catch { /* ignore */ }
+    try { window.prompt(promptLabel, text); return true; } catch { return false; }
   }
-  flashShareStatus(copied ? 'Link copied!' : 'Copy failed');
 }
 
-let shareStatusTimer = null;
-function flashShareStatus(msg) {
-  els.shareStatus.textContent = msg;
-  clearTimeout(shareStatusTimer);
-  shareStatusTimer = setTimeout(() => { els.shareStatus.textContent = ''; }, 2200);
+async function shareLink() {
+  const url = `${location.origin}${location.pathname}#s=${encodeShare(shareSnapshot())}`;
+  const ok = await copyText(url, 'Copy this link to share your board:');
+  flashStatus(els.shareStatus, ok ? 'Link copied!' : 'Copy failed');
+}
+
+async function copyAsciiChart() {
+  const ok = await copyText(els.asciiChart.textContent, 'Copy the chord chart:');
+  flashStatus(els.asciiStatus, ok ? 'Copied!' : 'Copy failed');
+}
+
+function flashStatus(el, msg) {
+  el.textContent = msg;
+  clearTimeout(el._statusTimer);
+  el._statusTimer = setTimeout(() => { el.textContent = ''; }, 2200);
 }
 
 // If the page was opened with a shared snapshot in the hash, load it (taking
@@ -572,6 +612,7 @@ function bindControls() {
   els.muteAll.addEventListener('click', () => { state.chord = state.strings.map(() => null); render(); });
   els.saveChord.addEventListener('click', saveCurrentChord);
   els.share.addEventListener('click', shareLink);
+  els.copyAscii.addEventListener('click', copyAsciiChart);
   els.reset.addEventListener('click', () => {
     state.strings = [...PRESETS[DEFAULT_PRESET]];
     state.frets = 15;

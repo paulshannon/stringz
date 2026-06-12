@@ -231,6 +231,26 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .saved-remove:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
+/* diagrams on the left, text chart on the right */
+.saved-body { display: flex; flex-wrap: wrap; gap: 1.25rem; align-items: flex-start; margin-top: 0.8rem; }
+.saved-body > * { margin-top: 0; }
+.saved-body .saved-list { flex: 1 1 300px; }
+.ascii-wrap { flex: 0 1 auto; }
+.ascii-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
+.ascii-head h3 { margin: 0; font-size: 1rem; }
+.ascii-chart {
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
 /* ---------- board panel ---------- */
 .board-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .board-scroll { overflow-x: auto; padding: 0.5rem 0 0.2rem; }
@@ -246,7 +266,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .context-bar { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; min-height: 2.2rem; margin: 0.4rem 0 0.2rem; }
 .chord-name { font-size: 1.5rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
 .chord-quality { font-size: 0.9rem; }
-#mute-all { margin-left: auto; }
+#save-chord { margin-left: auto; }
 
 .chord-details { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; margin-top: 0.6rem; font-size: 0.9rem; }
 .chord-details code { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.1rem 0.45rem; font-variant-numeric: tabular-nums; letter-spacing: 0.05em; }
