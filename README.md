@@ -33,6 +33,9 @@ and vanilla ES-module JavaScript, deployed to GitHub Pages.
 - **Shareable links** — the **Share** button copies a URL that encodes the whole
   board (tuning, capo, current chord, display options, and your saved chords);
   opening it loads that state. No server — the data rides in the URL hash.
+- **Tuner** — a microphone tuner (Web Audio autocorrelation) that matches what
+  you play to the nearest string in your tuning and shows the cents offset on a
+  meter. Audio is processed locally and never leaves your device.
 
 ## Running locally
 

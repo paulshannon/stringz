@@ -4,6 +4,7 @@ import { PRESETS, DEFAULT_PRESET } from './presets.js';
 import { renderFretboard } from './fretboard.js';
 import { identifyChord } from './chords.js';
 import { encodeShare, decodeShare } from './share.js';
+import { createTuner } from './tuner.js';
 
 const STORAGE_KEY = 'stringz.state.v1';
 const THEME_KEY = 'stringz.theme';
@@ -66,6 +67,13 @@ const els = {
   asciiStatus: document.getElementById('ascii-status'),
   share: document.getElementById('share'),
   shareStatus: document.getElementById('share-status'),
+  tunerToggle: document.getElementById('tuner-toggle'),
+  tunerStatus: document.getElementById('tuner-status'),
+  tunerDisplay: document.getElementById('tuner-display'),
+  tunerTarget: document.getElementById('tuner-target'),
+  tunerVerdict: document.getElementById('tuner-verdict'),
+  tunerNeedle: document.getElementById('tuner-needle'),
+  tunerDetail: document.getElementById('tuner-detail'),
 };
 
 const HINTS = {
@@ -497,6 +505,72 @@ function flashStatus(el, msg) {
   el._statusTimer = setTimeout(() => { el.textContent = ''; }, 2200);
 }
 
+// ---------- tuner ----------
+let tuner = null;
+let tunerOn = false;
+
+const TUNER_MESSAGES = {
+  idle: 'Uses your microphone to tune against the current tuning — audio stays on your device.',
+  listening: 'Listening — pluck a string. The meter shows how far it is from the nearest string in your tuning.',
+  denied: 'Microphone access was denied. Allow it in your browser to use the tuner.',
+  unsupported: 'This browser doesn’t support microphone input for the tuner.',
+};
+
+function toggleTuner() {
+  if (tunerOn) {
+    tuner?.stop();
+    return;
+  }
+  if (!tuner) tuner = createTuner({ onPitch: updateTuner, onStatus: onTunerStatus });
+  tuner.start();
+}
+
+function onTunerStatus(status) {
+  tunerOn = status === 'listening';
+  els.tunerToggle.textContent = tunerOn ? 'Stop tuner' : 'Start tuner';
+  els.tunerToggle.setAttribute('aria-pressed', String(tunerOn));
+  els.tunerStatus.textContent = TUNER_MESSAGES[status] ?? TUNER_MESSAGES.idle;
+  els.tunerDisplay.hidden = !tunerOn;
+  if (!tunerOn) resetTunerReadout();
+}
+
+function resetTunerReadout() {
+  els.tunerTarget.textContent = '—';
+  els.tunerVerdict.textContent = '';
+  els.tunerDetail.textContent = '';
+  els.tunerNeedle.style.left = '50%';
+  els.tunerNeedle.className = 'tuner-needle';
+}
+
+// Map a detected frequency to the nearest open string in the current tuning
+// (the capo doesn't change how the open strings are tuned) and show the offset.
+function updateTuner(freq) {
+  if (!freq) {
+    els.tunerVerdict.textContent = 'listening…';
+    els.tunerVerdict.className = 'tuner-verdict muted';
+    els.tunerNeedle.className = 'tuner-needle idle';
+    return;
+  }
+  const noteNum = 12 * Math.log2(freq / 440) + 69; // fractional MIDI
+  let best = 0;
+  let bestDiff = Infinity;
+  state.strings.forEach((m, i) => {
+    const d = Math.abs(noteNum - m);
+    if (d < bestDiff) { bestDiff = d; best = i; }
+  });
+  const targetMidi = state.strings[best];
+  const targetFreq = 440 * 2 ** ((targetMidi - 69) / 12);
+  const cents = Math.round(1200 * Math.log2(freq / targetFreq));
+  const inTune = Math.abs(cents) <= 5;
+
+  els.tunerTarget.textContent = noteName(targetMidi, { useFlats: state.useFlats, withOctave: true });
+  els.tunerVerdict.textContent = inTune ? '✓ in tune' : cents > 0 ? '♯ too sharp' : '♭ too flat';
+  els.tunerVerdict.className = `tuner-verdict ${inTune ? 'in-tune' : ''}`;
+  els.tunerNeedle.style.left = `${50 + Math.max(-50, Math.min(50, cents))}%`;
+  els.tunerNeedle.className = `tuner-needle${inTune ? ' in-tune' : ''}`;
+  els.tunerDetail.textContent = `${freq.toFixed(1)} Hz · ${cents > 0 ? '+' : ''}${cents}¢`;
+}
+
 // If the page was opened with a shared snapshot in the hash, load it (taking
 // precedence over saved local state), then clear the hash so later refreshes
 // use the now-persisted local state.
@@ -613,6 +687,7 @@ function bindControls() {
   els.saveChord.addEventListener('click', saveCurrentChord);
   els.share.addEventListener('click', shareLink);
   els.copyAscii.addEventListener('click', copyAsciiChart);
+  els.tunerToggle.addEventListener('click', toggleTuner);
   els.reset.addEventListener('click', () => {
     state.strings = [...PRESETS[DEFAULT_PRESET]];
     state.frets = 15;
