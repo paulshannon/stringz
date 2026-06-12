@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Stringz — an interactive guitar fretboard with configurable strings and arbitrary tunings. Runs entirely in your browser." />
+  <title>Stringz · Interactive Fretboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎸</text></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1 class="logo">🎸 Stringz</h1>
+      <p class="tagline">Interactive fretboard · configurable strings · arbitrary tunings</p>
+    </div>
+    <div class="topbar-actions">
+      <span id="share-status" class="share-status" aria-live="polite"></span>
+      <button id="share" class="share-btn" type="button">🔗 Share</button>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle color theme">🌙</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel board-panel">
+      <div class="board-head">
+        <h2>Fretboard</h2>
+        <div class="mode-switch" role="group" aria-label="Interaction mode">
+          <button id="mode-explore" class="mode-btn" type="button" aria-pressed="true">Explore</button>
+          <button id="mode-chord" class="mode-btn" type="button" aria-pressed="false">Build chord</button>
+        </div>
+      </div>
+
+      <div id="explore-bar" class="context-bar">
+        <span id="selection-info" class="muted" aria-live="polite"></span>
+        <button id="clear-highlights" type="button">Clear highlights</button>
+      </div>
+
+      <div id="chord-bar" class="context-bar" hidden>
+        <span class="chord-name" id="chord-name" aria-live="polite">—</span>
+        <span class="chord-quality muted" id="chord-quality"></span>
+        <button id="save-chord" type="button">+ Save</button>
+        <button id="mute-all" type="button">Mute all</button>
+      </div>
+
+      <div class="board-scroll">
+        <div id="fretboard" class="fretboard" role="grid" aria-label="Guitar fretboard"></div>
+      </div>
+
+      <div id="chord-details" class="chord-details" hidden>
+        <div><span class="muted">Notes (low → high):</span> <span id="chord-notes">—</span></div>
+        <div><span class="muted">Shape (low → high):</span> <code id="chord-shape">—</code></div>
+      </div>
+
+      <p class="muted hint" id="board-hint">Click any position to highlight every occurrence of that note across the neck.</p>
+    </section>
+
+    <section class="panel saved-panel">
+      <h2>Saved chords</h2>
+      <p id="saved-empty" class="muted hint">No saved chords yet. Switch to “Build chord”, make a shape, and click “+ Save” above the board.</p>
+      <div class="saved-body">
+        <ul id="saved-list" class="saved-list"></ul>
+
+        <div id="ascii-wrap" class="ascii-wrap" hidden>
+          <div class="ascii-head">
+            <h3>Text chart</h3>
+            <button id="copy-ascii" type="button">Copy</button>
+            <span id="ascii-status" class="share-status" aria-live="polite"></span>
+          </div>
+          <pre id="ascii-chart" class="ascii-chart" aria-label="ASCII chord chart of all saved chords"></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel tuner-panel">
+      <div class="tuner-head">
+        <h2>Tuner</h2>
+        <button id="tuner-toggle" type="button">Start tuner</button>
+      </div>
+      <p id="tuner-status" class="muted hint">Uses your microphone to tune against the current tuning — audio stays on your device.</p>
+      <div id="tuner-display" class="tuner-display" hidden>
+        <div class="tuner-note">
+          <span id="tuner-target" class="tuner-target">—</span>
+          <span id="tuner-verdict" class="tuner-verdict muted"></span>
+        </div>
+        <div class="tuner-meter">
+          <div class="tuner-track">
+            <span class="tuner-center"></span>
+            <span id="tuner-needle" class="tuner-needle"></span>
+          </div>
+          <div class="tuner-scale"><span>♭ -50</span><span>0</span><span>+50 ♯</span></div>
+        </div>
+        <p id="tuner-detail" class="muted hint"></p>
+      </div>
+    </section>
+
+    <aside class="panel config-panel" id="config-panel">
+      <div class="config-head">
+        <h2 id="config-title">Configuration</h2>
+        <button id="config-toggle" class="collapse-toggle" type="button"
+                aria-expanded="true" aria-controls="config-body">
+          <span class="chevron" aria-hidden="true">▾</span>
+          <span class="visually-hidden">Toggle configuration</span>
+        </button>
+      </div>
+
+      <div class="config-body" id="config-body">
+        <label class="field">
+          <span>Preset tuning</span>
+          <select id="preset" aria-label="Preset tuning"></select>
+        </label>
+
+        <label class="field">
+          <span>Frets: <output id="fret-count">15</output></span>
+          <input id="frets" type="range" min="5" max="24" value="15" />
+        </label>
+
+        <label class="field">
+          <span>Capo: <output id="capo-count">Off</output></span>
+          <input id="capo" type="range" min="0" max="14" value="0" />
+        </label>
+
+        <fieldset class="field toggles">
+          <legend>Display</legend>
+          <label class="check"><input id="show-all" type="checkbox" checked /> Show all note names</label>
+          <label class="check"><input id="use-flats" type="checkbox" /> Use flats (♭) instead of sharps (♯)</label>
+          <label class="check"><input id="show-octave" type="checkbox" /> Show octave numbers</label>
+          <label class="check"><input id="left-handed" type="checkbox" /> Left-handed</label>
+        </fieldset>
+
+        <div class="strings-section">
+          <div class="strings-head">
+            <h3>Strings <span id="string-count" class="muted"></span></h3>
+            <div class="string-buttons">
+              <button id="add-string" type="button" title="Add a higher string">+ String</button>
+              <button id="remove-string" type="button" title="Remove the highest string">− String</button>
+            </div>
+          </div>
+          <p class="muted hint">Top row = highest-pitched string, matching the board. Each string is independently tunable.</p>
+          <ol id="string-list" class="string-list" reversed></ol>
+        </div>
+
+        <button id="reset" class="reset" type="button">Reset to standard guitar</button>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <span>Vanilla JS · No tracking · No network calls</span>
+    <a href="https://github.com/paulshannon/stringz" rel="noopener">Source on GitHub</a>
+  </footer>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
