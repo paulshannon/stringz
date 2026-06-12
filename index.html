@@ -39,6 +39,7 @@
       <div id="chord-bar" class="context-bar" hidden>
         <span class="chord-name" id="chord-name" aria-live="polite">—</span>
         <span class="chord-quality muted" id="chord-quality"></span>
+        <button id="save-chord" type="button">+ Save</button>
         <button id="mute-all" type="button">Mute all</button>
       </div>
 
@@ -55,12 +56,20 @@
     </section>
 
     <section class="panel saved-panel">
-      <div class="saved-head">
-        <h2>Saved chords</h2>
-        <button id="save-chord" type="button">+ Save current chord</button>
+      <h2>Saved chords</h2>
+      <p id="saved-empty" class="muted hint">No saved chords yet. Switch to “Build chord”, make a shape, and click “+ Save” above the board.</p>
+      <div class="saved-body">
+        <ul id="saved-list" class="saved-list"></ul>
+
+        <div id="ascii-wrap" class="ascii-wrap" hidden>
+          <div class="ascii-head">
+            <h3>Text chart</h3>
+            <button id="copy-ascii" type="button">Copy</button>
+            <span id="ascii-status" class="share-status" aria-live="polite"></span>
+          </div>
+          <pre id="ascii-chart" class="ascii-chart" aria-label="ASCII chord chart of all saved chords"></pre>
+        </div>
       </div>
-      <p id="saved-empty" class="muted hint">No saved chords yet. Build a chord, then click “Save” to keep it here.</p>
-      <ul id="saved-list" class="saved-list"></ul>
     </section>
 
     <aside class="panel config-panel" id="config-panel">
