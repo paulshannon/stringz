@@ -251,6 +251,45 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   white-space: pre;
 }
 
+/* ---------- tuner ---------- */
+.tuner-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.tuner-head h2 { margin: 0; }
+.tuner-display { margin-top: 0.9rem; max-width: 460px; }
+.tuner-note { display: flex; align-items: baseline; gap: 0.8rem; }
+.tuner-target { font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.tuner-verdict { font-size: 0.95rem; }
+.tuner-verdict.in-tune { color: #2e9b57; font-weight: 600; }
+:root[data-theme='dark'] .tuner-verdict.in-tune { color: #5fd08a; }
+
+.tuner-meter { margin-top: 0.8rem; }
+.tuner-track {
+  position: relative;
+  height: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.tuner-center {
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--muted);
+  transform: translateX(-50%);
+}
+.tuner-needle {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 0.9rem; height: 0.9rem;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translate(-50%, -50%);
+  transition: left 0.09s linear;
+}
+.tuner-needle.in-tune { background: #2e9b57; }
+.tuner-needle.idle { background: var(--border); }
+.tuner-scale { display: flex; justify-content: space-between; margin-top: 0.25rem; font-size: 0.72rem; color: var(--muted); }
+
 /* ---------- board panel ---------- */
 .board-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .board-scroll { overflow-x: auto; padding: 0.5rem 0 0.2rem; }
