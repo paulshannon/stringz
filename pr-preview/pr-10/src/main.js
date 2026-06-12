@@ -307,18 +307,30 @@ function renderSavedChords() {
   els.asciiChart.textContent = asciiChart(state.savedChords);
 }
 
-// One line per chord: the per-string frets (relative to the capo, 'X' = muted),
-// low → high, followed by the chord name. Columns are padded so they line up.
+// A plain-text chart of the saved chords, grouped by capo. Each line is the
+// per-string frets (relative to that group's capo, 'X' = muted), low → high,
+// followed by the chord name. Columns are padded to align across all chords.
 function asciiChart(saved) {
   if (!saved.length) return '';
-  const rows = saved.map((sc) => ({
-    cells: sc.chord.map((f) => (f == null ? 'X' : String(f - (sc.capo || 0)))),
-    name: (sc.name || '-') + (sc.capo > 0 ? ` (capo ${sc.capo})` : ''),
-  }));
-  const cellW = Math.max(1, ...rows.flatMap((r) => r.cells.map((c) => c.length)));
-  const shapes = rows.map((r) => r.cells.map((c) => c.padStart(cellW)).join(' '));
-  const shapeW = Math.max(...shapes.map((s) => s.length));
-  return rows.map((r, i) => `${shapes[i].padEnd(shapeW)}  ${r.name}`).join('\n');
+
+  const cellsOf = (sc) => sc.chord.map((f) => (f == null ? 'X' : String(f - (sc.capo || 0))));
+  const cellW = Math.max(1, ...saved.flatMap((sc) => cellsOf(sc).map((c) => c.length)));
+  const shapeOf = (sc) => cellsOf(sc).map((c) => c.padStart(cellW)).join(' ');
+  const shapeW = Math.max(...saved.map((sc) => shapeOf(sc).length));
+
+  // group by capo, in ascending capo order
+  const capos = [...new Set(saved.map((sc) => sc.capo || 0))].sort((a, b) => a - b);
+  const showHeaders = !(capos.length === 1 && capos[0] === 0);
+
+  const out = [];
+  capos.forEach((capo, gi) => {
+    if (gi > 0) out.push('');
+    if (showHeaders) out.push(capo === 0 ? 'No capo' : `Capo ${capo}`);
+    for (const sc of saved.filter((sc) => (sc.capo || 0) === capo)) {
+      out.push(`${shapeOf(sc).padEnd(shapeW)}  ${sc.name || '-'}`);
+    }
+  });
+  return out.join('\n');
 }
 
 // Build a compact SVG chord diagram for a saved chord. Strings run low → high
